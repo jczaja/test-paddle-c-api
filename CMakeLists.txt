@@ -4,15 +4,15 @@ project(test-paddle)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CheckCXXCompilerFlag)
 
-#if(UNIX)
-#CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-#CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
-#if(COMPILER_SUPPORTS_CXX11)
-#add_definitions(-std=c++11)
-#elseif(COMPILER_SUPPORTS_CXX0X)
-#add_definitions(-std=c++0x)
-#endif()
-#endif()
+if(UNIX)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+if(COMPILER_SUPPORTS_CXX11)
+add_definitions(-std=c++11)
+elseif(COMPILER_SUPPORTS_CXX0X)
+add_definitions(-std=c++0x)
+endif()
+endif()
 
 message("PADDLEROOT: $ENV{PADDLEROOT}")
 # ---[ Find include dir
@@ -33,7 +33,7 @@ else()
   message(FATAL " Intel PADDLE not located properly")
 endif()
 
-add_executable(test-paddle main.c)
+add_executable(test-paddle main.cpp)
 
 add_definitions(-Wall)
 
