@@ -33,8 +33,13 @@ else()
   message(FATAL " Intel PADDLE not located properly")
 endif()
 
+#OpenCV
+find_package( OpenCV REQUIRED )
+include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS})
+message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
+
 add_executable(test-paddle main.cpp)
 
 add_definitions(-Wall)
 
-target_link_libraries(test-paddle ${PADDLE_LIBRARY} )
+target_link_libraries(test-paddle ${PADDLE_LIBRARY} ${OpenCV_LIBS})
