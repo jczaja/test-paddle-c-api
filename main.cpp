@@ -8,8 +8,12 @@
 
 #define CONFIG_BIN "./trainer_config.bin"
 
-void makeRandomData(paddle_real*& array)
+void makeRandomData(paddle_matrix& mat)
 {
+  paddle_real* array;
+  // Get First row.
+  CHECK(paddle_matrix_get_row(mat, 0, &array));
+
   for (int i = 0; i < 784; ++i) {
     array[i] = rand() / ((float)RAND_MAX);
   }
@@ -21,25 +25,35 @@ void makeRandomData(paddle_real*& array)
  * to the input layer. */
 // TODO: What is PaddlePaddle data layer format???? (Matrix data format for DataLayer)
 // TODO: Finish wrapping around paddle_array
-void wrapInputLayerBatch(std::vector<std::vector<cv::Mat> >* input_channels_batch) {
-    caffe::Blob<float>* input_layer = net_->input_blobs()[0];
 
-    int width = input_layer->width();
-    int height = input_layer->height();
-    float* input_data = input_layer->mutable_cpu_data();
-    int num = input_layer->num();
-    for( int j = 0; j < num; ++j) {
-        std::vector<cv::Mat> input_channels;
-        for (int i = 0; i < input_layer->channels(); ++i) {
-            cv::Mat channel(height, width, CV_32FC1, input_data);
-            input_channels.push_back(channel);
-            input_data += width * height;
-        }
-        input_channels_batch->push_back(input_channels);
-    }
+void wrapInputLayerBatch(paddle_matrix& mat, std::vector<std::vector<cv::Mat> >* input_channels_batch) {
+
+  uint64_t width = (*input_channels_batch)[0][0].rows;
+  uint64_t height = (*input_channels_batch)[0][0].cols;
+  uint64_t channels = 3; 
+
+  // Create input matrix.
+  mat = paddle_matrix_create(/* sample_num */ input_channels_batch->size(),
+                                         /* size */ width*height*channels,
+                                         /* useGPU */ false);
+
+  paddle_real* input_data;
+  // Get First row.
+  CHECK(paddle_matrix_get_row(mat, 0, &input_data));
+
+  int num = input_channels_batch->size();
+  for( int j = 0; j < num; ++j) {
+      std::vector<cv::Mat> input_channels;
+      for (int i = 0; i < channels; ++i) {
+          cv::Mat channel(height, width, CV_32FC1, input_data);
+          input_channels.push_back(channel);
+          input_data += width * height;
+      }
+      input_channels_batch->push_back(input_channels);
+  }
 }
 
-void getImageData(paddle_real*& array, char** argv)
+paddle_matrix getImageData(char** argv)
 {
   printf("OBRAZEK!!!\n");
   cv::Mat image = cv::imread(argv[1], CV_LOAD_IMAGE_COLOR );
@@ -49,20 +63,30 @@ void getImageData(paddle_real*& array, char** argv)
     exit(-1);
   }
 
-  // TODO: Implementation
+  std::vector<std::vector<cv::Mat>> obrazki;
+  paddle_matrix mat;
 
+  wrapInputLayerBatch(mat, &obrazki);
+
+  return mat;
 }
 
-void prepareData(paddle_real*& array, int mode, char** argv)
+paddle_matrix prepareData(int mode, char** argv)
 {
+
   // Random data mode
   if(mode == 1) {
-    makeRandomData(array);
+    // Create input matrix.
+    paddle_matrix mat = paddle_matrix_create(/* sample_num */ 1,
+                                           /* size */ 784,
+                                           /* useGPU */ false);
+    makeRandomData(mat);
+    return mat;
   }
 
   // Image classification mode
   if(mode == 2) {
-    getImageData(array,argv);
+    return getImageData(argv);
   }
 }
 
@@ -99,18 +123,9 @@ int main(int argc, char** argv) {
   // There is only one input of this network.
   CHECK(paddle_arguments_resize(in_args, 1));
 
-  // Create input matrix.
-  paddle_matrix mat = paddle_matrix_create(/* sample_num */ 1,
-                                           /* size */ 784,
-                                           /* useGPU */ false);
   srand(time(0));
 
-  paddle_real* array;
-
-  // Get First row.
-  CHECK(paddle_matrix_get_row(mat, 0, &array));
-
-  prepareData(array, argc, argv);
+  paddle_matrix mat = prepareData(argc, argv);
 
 
   CHECK(paddle_arguments_set_value(in_args, 0, mat));
@@ -127,6 +142,7 @@ int main(int argc, char** argv) {
   uint64_t height;
   uint64_t width;
 
+  paddle_real* array;
   CHECK(paddle_matrix_get_shape(prob, &height, &width));
   CHECK(paddle_matrix_get_row(prob, 0, &array));
 

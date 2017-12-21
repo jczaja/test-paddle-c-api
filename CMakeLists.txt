@@ -35,10 +35,14 @@ endif()
 
 #OpenCV
 find_package( OpenCV REQUIRED )
+#set(OpenCV_INCLUDE_DIRS "/usr/local/include/opencv2/")
+#set(OpenCV_LIBS "/usr/local/lib/libopencv_core.so")
 include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS})
 message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
 
 add_executable(test-paddle main.cpp)
+
+set(CMAKE_EXE_LINKER_FLAGS -Wl,-rpath,/usr/local/lib64)
 
 add_definitions(-Wall)
 
