@@ -7,18 +7,19 @@
 #include "common/common.h"
 
 #define CONFIG_BIN "./trainer_config.bin"
+#define INPUT_SIZE 784
 
 void makeIncrementalData(paddle_matrix& mat)
 {
   paddle_real* array;
   int num = 1;
   mat = paddle_matrix_create(/* sample_num */ num,
-                                         /* size */784,
+                                         /* size */INPUT_SIZE,
                                          /* useGPU */ false);
   // Get First row.
   CHECK(paddle_matrix_get_row(mat, 0, &array));
 
-  for (int i = 0; i < 784; ++i) {
+  for (int i = 0; i < INPUT_SIZE; ++i) {
     array[i] = i;
   }
 }
@@ -28,14 +29,14 @@ void makeRandomData(paddle_matrix& mat)
   paddle_real* array;
   int num = 1;
   mat = paddle_matrix_create(/* sample_num */ num,
-                                         /* size */784,
+                                         /* size */INPUT_SIZE,
                                          /* useGPU */ false);
   // Get First row.
   CHECK(paddle_matrix_get_row(mat, 0, &array));
 
 
 
-  for (int i = 0; i < 784; ++i) {
+  for (int i = 0; i < INPUT_SIZE; ++i) {
     array[i] = rand() / ((float)RAND_MAX);
   }
 }
@@ -45,12 +46,12 @@ void makeFixedData(paddle_matrix& mat, paddle_real value)
   paddle_real* array;
   int num = 1;
   mat = paddle_matrix_create(/* sample_num */ num,
-                                         /* size */784,
+                                         /* size */INPUT_SIZE,
                                          /* useGPU */ false);
   // Get First row.
   CHECK(paddle_matrix_get_row(mat, 0, &array));
 
-  for (int i = 0; i < 784; ++i) {
+  for (int i = 0; i < INPUT_SIZE; ++i) {
     array[i] = value;
   }
 }
@@ -67,9 +68,9 @@ void wrapInputLayerBatch(paddle_matrix& mat, std::vector<std::vector<cv::Mat> >*
 
   // Create input matrix.
   int num = 1;
-  mat = paddle_matrix_create(/* sample_num */ num,
-                                         /* size */ width*height*channels,
-                                         /* useGPU */ false);
+  //mat = paddle_matrix_create([> sample_num <] num,
+                                         //[> size <] width*height*channels,
+                                         //[> useGPU <] false);
 
   paddle_real* input_data;
   // Get First row.
@@ -86,6 +87,55 @@ void wrapInputLayerBatch(paddle_matrix& mat, std::vector<std::vector<cv::Mat> >*
   }
 }
 
+
+void Preprocess(const cv::Mat& img,
+                            std::vector<cv::Mat>* input_channels) {
+  /* Convert the input image to the input image format of the network. */
+  cv::Mat sample;
+  int num_channels = 1;
+  if (img.channels() == 3 && num_channels == 1)
+    cv::cvtColor(img, sample, cv::COLOR_BGR2GRAY);
+  else if (img.channels() == 4 && num_channels == 1)
+    cv::cvtColor(img, sample, cv::COLOR_BGRA2GRAY);
+  else if (img.channels() == 4 && num_channels == 3)
+    cv::cvtColor(img, sample, cv::COLOR_BGRA2BGR);
+  else if (img.channels() == 1 && num_channels == 3)
+    cv::cvtColor(img, sample, cv::COLOR_GRAY2BGR);
+  else
+    sample = img;
+
+
+  cv::Size input_geometry_(num_channels, INPUT_SIZE);
+
+  cv::Mat sample_resized;
+  if (sample.size() != input_geometry_)
+    cv::resize(sample, sample_resized, input_geometry_);
+  else
+    sample_resized = sample;
+
+  cv::Mat sample_float;
+  if (num_channels == 3) {
+    sample_resized.convertTo(sample_float, CV_32FC3);
+    cv::split(sample_float, *input_channels);
+  } else {
+    sample_resized = sample_resized.reshape(1,1);
+    sample_resized.convertTo((*input_channels)[0], CV_32FC1);
+  }
+  //cv::Mat sample_normalized;
+  //cv::subtract(sample_float, mean_, sample_normalized);
+
+  /* This operation will write the separate BGR planes directly to the
+   * input layer of the network because it is wrapped by the cv::Mat
+   * objects in input_channels. */
+}
+
+void Preprocess(const std::vector<cv::Mat>& imgs,
+                            std::vector<std::vector<cv::Mat>>& input_channels_batch) {
+  for(size_t i=0; i<input_channels_batch.size(); ++i) {
+      Preprocess(imgs[i],&input_channels_batch[i]);
+  }
+}
+
 paddle_matrix getImageData(char** argv)
 {
   cv::Mat image = cv::imread(argv[1], CV_LOAD_IMAGE_COLOR );
@@ -98,10 +148,24 @@ paddle_matrix getImageData(char** argv)
   std::vector<std::vector<cv::Mat>> obrazki;
   paddle_matrix mat;
 
-  wrapInputLayerBatch(mat, &obrazki, 3, image.rows, image.cols);
+  mat = paddle_matrix_create( 1, INPUT_SIZE,  false);
+  // Wrap mat data with vector of cv::Mats
+  //wrapInputLayerBatch(mat, &obrazki, 3, image.rows, image.cols);
+  wrapInputLayerBatch(mat, &obrazki, 1, 1, INPUT_SIZE);
+
+paddle_real* input_data;
+CHECK(paddle_matrix_get_row(mat, 0, &input_data));
+
+  Preprocess({image}, obrazki);
+
+CHECK(paddle_matrix_get_row(mat, 0, &input_data));
+
+  cv::Mat tescik = obrazki[0][0];
+  printf("sss\n");
 
   return mat;
 }
+
 
 paddle_matrix prepareData(int mode, char** argv)
 {
@@ -132,7 +196,6 @@ int main(int argc, char** argv) {
             ");    
     exit(-1);
   }
-
 
   // Initalize Paddle
   char* largv[] = {"--use_mkldnn=True"};
