@@ -3,6 +3,11 @@
 #include <time.h>
 #include <cstring>
 #include <vector>
+#include <string>
+#include <fstream>
+#include <streambuf>
+#include <sstream>
+
 
 #include "common/common.h"
 
@@ -177,6 +182,31 @@ paddle_matrix prepareData(int mode, char** argv)
 }
 
 
+// Read lines of file with names of categories and print
+void printCategoryName(uint64_t idx_to_print)  
+{
+  std::ifstream ifs;
+  ifs.open("./synset_words.txt");
+
+  // If there is no /proc/cpuinfo fallback to default scheduler
+  if(ifs.good() == false) {
+      std::cout << "Error reading synset_words.txt file" << std::endl;
+      return;   
+  }
+  std::string cpuinfo_content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+  std::stringstream cpuinfo_stream(cpuinfo_content);
+  std::string category_line;
+  std::string cpu_name;
+  int curr_idx = 0;
+  while(std::getline(cpuinfo_stream, category_line,'\n')){
+    if (curr_idx == idx_to_print) {
+      std::cout << "Top1: " << category_line << std::endl; 
+    }
+    ++curr_idx;
+  }
+}
+
+
 int main(int argc, char** argv) {
 
   if(argc > 2 ) {
@@ -250,13 +280,25 @@ int main(int argc, char** argv) {
 
  
   printf("Prob: \n");
+  uint64_t argmax_i = 0;
+  float max_prob = 0.0;
   for (uint64_t i = 0; i < height * width; ++i) {
     printf("%.4f ", array[i]);
     if ((i + 1) % width == 0) {
       printf("\n");
     }
+    if(array[i] > max_prob) {
+      max_prob = array[i];
+      argmax_i = i;
+    }
   }
   printf("\n");
+
+  // For alexnet , print categories
+  if (argc == 2) {
+    printCategoryName(argmax_i);  
+  }
+
 
   CHECK(paddle_matrix_destroy(prob));
   CHECK(paddle_arguments_destroy(out_args));
