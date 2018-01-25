@@ -71,7 +71,7 @@ void wrapInputLayerBatch(paddle_matrix& mat, std::vector<std::vector<cv::Mat> >*
   for( int j = 0; j < num; ++j) {
       std::vector<cv::Mat> input_channels;
       for (int i = 0; i < channels; ++i) {
-          cv::Mat channel(height, width, CV_32FC1, input_data);
+          cv::Mat channel(height,width, CV_32FC1, input_data);
           input_channels.push_back(channel);
           input_data += width * height;
       }
@@ -95,7 +95,7 @@ void Preprocess(const cv::Mat& img,
   else
     sample = img;
 
-  cv::Size input_geometry_(input_num_channels, input_width*input_height);
+  cv::Size input_geometry_(input_width, input_height);
 
   cv::Mat sample_resized;
   if (sample.size() != input_geometry_)
