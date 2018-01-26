@@ -84,6 +84,40 @@ void wrapInputLayerBatch(paddle_matrix& mat, std::vector<std::vector<cv::Mat> >*
   }
 }
 
+cv::Mat load_mean_image(std::string mean_file)
+{
+
+  std::ifstream ifs;
+  ifs.open(mean_file);
+
+  if(ifs.good() == false) {
+      std::cout << "Error reading image mean file" << std::endl;
+      return cv::Mat();   
+  }
+
+  std::vector<cv::Mat> channels;
+  for (int c = 0; c < 3; ++c) {
+    cv::Mat channel(256, 256, CV_32FC1);
+    float parsedfloat;
+    int i=0;
+    while ( (ifs.eof() == false) && (i<256*256) )
+    {
+      ifs >> parsedfloat; 
+      ((float*)channel.data)[i++] = parsedfloat;
+    }
+    channels.push_back(channel);
+  }
+
+    /* Merge the separate channels into a single image. */
+  cv::Mat mean;
+  cv::merge(channels, mean);
+
+
+  /* Compute the global mean pixel value and create a mean image
+   * filled with this value. */
+  cv::Scalar channel_mean = cv::mean(mean);
+  return cv::Mat(cv::Size(input_width, input_height), mean.type(), channel_mean);
+}
 
 void Preprocess(const cv::Mat& img,
                             std::vector<cv::Mat>* input_channels) {
@@ -109,16 +143,19 @@ void Preprocess(const cv::Mat& img,
     sample_resized = sample;
 
   cv::Mat sample_float;
+  cv::Mat sample_normalized;
   if (input_num_channels == 3) {
     sample_resized.convertTo(sample_float, CV_32FC3);
-    cv::split(sample_float, *input_channels);
+    // Load image mean file
+    cv::Mat mean, mean_resized;
+    mean = load_mean_image("imagenet.mean");
+    cv::resize(mean, mean_resized, input_geometry_); 
+    cv::subtract(sample_float, mean_resized, sample_normalized);
+    cv::split(sample_normalized, *input_channels);
   } else {
     sample_resized = sample_resized.reshape(1,1);
     sample_resized.convertTo((*input_channels)[0], CV_32FC1);
   }
-  // TODO: Mean value
-  //cv::Mat sample_normalized;
-  //cv::subtract(sample_float, mean_, sample_normalized);
 
   /* This operation will write the separate BGR planes directly to the
    * input layer of the network because it is wrapped by the cv::Mat
@@ -183,7 +220,7 @@ paddle_matrix prepareData(int mode, char** argv)
 
 
 // Read lines of file with names of categories and print
-void printCategoryName(uint64_t idx_to_print)  
+void printCategoryName(uint64_t idx_to_print, float prob)  
 {
   std::ifstream ifs;
   ifs.open("./synset_words.txt");
@@ -200,7 +237,7 @@ void printCategoryName(uint64_t idx_to_print)
   int curr_idx = 0;
   while(std::getline(cpuinfo_stream, category_line,'\n')){
     if (curr_idx == idx_to_print) {
-      std::cout << "Top1: " << category_line << std::endl; 
+      std::cout << "Top1: " << prob <<" "<< category_line << std::endl; 
     }
     ++curr_idx;
   }
@@ -296,7 +333,7 @@ int main(int argc, char** argv) {
 
   // For alexnet , print categories
   if (argc == 2) {
-    printCategoryName(argmax_i);  
+    printCategoryName(argmax_i, max_prob);  
   }
 
 
