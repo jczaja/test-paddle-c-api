@@ -56,14 +56,18 @@ fc0 = fc_layer(
     act=ReluActivation(),
     layer_attr=attrs.ExtraLayerAttribute(drop_rate=0.5))
 
+slope0 = slope_intercept_layer(input=fc0, slope=2.0, intercept=0.0)
+
 fc1 = fc_layer(
-    input=fc0,
+    input=slope0,
     size=4096,
     act=ReluActivation(),
     layer_attr=attrs.ExtraLayerAttribute(drop_rate=0.5))
 
+slope1 = slope_intercept_layer(input=fc1, slope=2.0, intercept=0.0)
+
 prob = fc_layer(
-    input=fc1, size=1000, act=SoftmaxActivation())
+    input=slope1, size=1000, act=SoftmaxActivation())
 
 outputs(prob)
 
