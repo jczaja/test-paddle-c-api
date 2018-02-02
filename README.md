@@ -7,7 +7,7 @@ Tests of C API interface of PaddlePaddle.
 
 
 ## License (BSD 2-Clause license)
-Copyright 2018
+Copyright 2018 Jacek Czaja
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
